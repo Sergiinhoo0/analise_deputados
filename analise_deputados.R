@@ -1,135 +1,69 @@
 library(igraph)
+library(RColorBrewer)
+
+############Votações dos Deputados###################
 
 edgelist = read.csv2("edge_list_vot.csv", header = T, encoding = "UTF-8")
 
 net = graph.data.frame(edgelist, directed = FALSE)
 
-#############################################
-
-degree_entropy = function(net) {
-  
-  p = degree.distribution(net)
-  
-  p = p[p>0]
-  
-  entropy = sum(-p * log(p))
-  
-  return(entropy)
-}
-
-path_entropy = function(net) {
-  
-  distance = distance_table(net)
-  
-  p = distance$res / sum(distance$res)
-  
-  entropy = sum(-p * log(p))
-  
-  return(entropy)
-}
-
-total_entropy = function(net){
-  
-  total_entropy = degree_entropy(net) * path_entropy(net)
-  
-  return(total_entropy)
-}
-
-optimal_cut = function(net){
-
-  weights = sort(as.double(E(net)$weight))
-  ent = c()
-  
-  cont = 0
-  
-  for (w in weights) {
-    
-    thr = w
-    net = delete.edges(net, which(E(net)$weight < thr))
-    net = delete.vertices(net, which(degree(net) < 1))
-    
-    ent = c(ent, total_entropy(net))
-    
-    cont = cont + 1
-    print(cont)
-}
-  df = data.frame(ent, weights)
-  df = df[order(-df$ent),]
-  plot(ent)
-  
-  return(df$weights[1])
-}
-
-######################################
-
-optimal_cut_smp = function(net){
-  
-  weights = sort(as.double(E(net)$weight))
-  ent = c()
-  weights_smp = c()
-  
-  cont = 0
-  
-  for (w in weights){
-    
-    weights_smp = c(weights_smp, round(w, 2))
-    
-    cont = cont + 1
-    print(cont)
-    
-  }
-  
-  weights_smp = unique(weights_smp)
-  
-  cont = 0
-  
-  for (w in weights_smp) {
-    
-    thr = w
-    net = delete.edges(net, which(E(net)$weight < thr))
-    net = delete.vertices(net, which(degree(net) < 1))
-    
-    ent = c(ent, total_entropy(net))
-    
-    cont = cont + 1
-    print(cont)
-    
-  }
-  df = data.frame(ent, weights_smp)
-  df = df[order(-df$ent),]
-  plot(ent)
-  
-  return(df$weights_smp[1])
-}
-
-#####################################
-
 thr = optimal_cut_smp(net)
 
 net = delete.edges(net, which(E(net)$weight < thr))
 
-# net = delete.vertices(net, which(degree(net) < 1))
+cl = cluster_louvain(net)
+
+V(net)$community = cl$membership
+
+pal = brewer.pal(3, "Dark2")
+#pal = colorRampPalette(pal)(length(unique(V(net)$community)))
 
 plot(net,
-     vertex.size = 2,
-     vertex.label.cex = .1,
-     edge.width = 1,
-     asp = .5)
+     vertex.size = 3,
+     vertex.label = NA,
+     edge.width = .1,
+     asp = .5,
+     vertex.color = pal[as.numeric(as.factor(vertex_attr(net, "community")))])
 
-clusters = cluster_louvain(net)
+clusters = data.frame(Parlamentar = cl[[1]], Cluster = 1)
+clusters = rbind(clusters, data.frame(Parlamentar = cl[[2]], Cluster = 2))
+clusters = rbind(clusters, data.frame(Parlamentar = cl[[3]], Cluster = 3))
 
-###################
+write.csv2(clusters,"C:/Users/Sérgio Ricardo/Desktop/Faculdade/TCC/Base/clusters_deputados.csv", row.names = FALSE)
+
+############Faltas dos Deputados###################
 
 dados_faltas = read.csv2("dados_faltas.csv", header = T, encoding = "UTF-8")
 
 rownames(dados_faltas) = dados_faltas$Parlamentar
 
-m_faltas = as.matrix(dist(dados_faltas$Faltas))
+m_faltas = as.matrix(dist(dados_faltas$Faltas)+1)
 
 net_f=graph.adjacency(m_faltas,mode=c("undirected"),weighted=TRUE)
 
 E(net_f)$weight=1/E(net_f)$weight
 
-plot(net_f)
+thr_f = optimal_cut_smp(net_f)
 
-mais_infor(net)
+net_f = delete.edges(net_f, which(E(net_f)$weight < thr_f))
+
+cl_f = cluster_louvain(net_f)
+
+V(net_f)$community = cl_f$membership
+
+pal_f = brewer.pal(8, "Dark2")
+pal_f = colorRampPalette(pal_f)(length(unique(V(net_f)$community)))
+
+plot(net_f,
+     vertex.size = 3,
+     vertex.label = NA,
+     edge.width = .1,
+     asp = .5,
+     vertex.color = pal_f[as.numeric(as.factor(vertex_attr(net_f, "community")))])
+
+clusters_f = data.frame(Parlamentar = cl[[1]], Cluster = 1)
+clusters_f = rbind(clusters_f, data.frame(Parlamentar = cl[[2]], Cluster = 2))
+clusters_f = rbind(clusters_f, data.frame(Parlamentar = cl[[3]], Cluster = 3))
+
+write.csv2(clusters_f,"C:/Users/Sérgio Ricardo/Desktop/Faculdade/TCC/Base/clusters_faltas_deputados.csv", row.names = FALSE)
+
