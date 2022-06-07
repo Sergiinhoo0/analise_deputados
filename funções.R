@@ -58,7 +58,7 @@ optimal_cut = function(net){
 
 ######################################
 
-optimal_cut_smp = function(net){
+optimal_cut_smp = function(net, i){
   
   weights = sort(as.double(E(net)$weight))
   ent = c()
@@ -68,7 +68,7 @@ optimal_cut_smp = function(net){
   
   for (w in weights){
     
-    weights_smp = c(weights_smp, round(w, 3))
+    weights_smp = c(weights_smp, round(w, 2))
     
     cont = cont + 1
     print(cont)
@@ -94,6 +94,9 @@ optimal_cut_smp = function(net){
   df = data.frame(ent, weights_smp)
   df = df[order(-df$ent),]
   plot(ent)
-  
-  return(df$weights_smp[1])
+  dev.print( device = jpeg,
+             filename = sprintf("imagens/entropias_%s.jpg", substr(i, 25, nchar(i)-4)),
+             width = 1920,
+             height = 1080) 
+  return(df[1, ])
 }
