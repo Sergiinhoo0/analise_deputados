@@ -1,69 +1,70 @@
 library(igraph)
 library(RColorBrewer)
 
+setwd("C:/Users/Sérgio Ricardo/Desktop/Faculdade/TCC/Base")
+
 ############Votações dos Deputados###################
 
-edgelist = read.csv2("edge_list_vot.csv", header = T, encoding = "UTF-8")
+arquivos = c("edge_list/edge_list_vot_FHC_2.csv",
+             "edge_list/edge_list_vot_LULA_1.csv",
+             "edge_list/edge_list_vot_LULA_2.csv",
+             "edge_list/edge_list_vot_DILMA_1.csv",
+             "edge_list/edge_list_vot_DILMA_2.csv",
+             "edge_list/edge_list_vot_TEMER.csv",
+             "edge_list/edge_list_vot_BOLSONARO.csv")
 
-net = graph.data.frame(edgelist, directed = FALSE)
+redes = function(arquivos) {
+        entropias = c()
+        
+        for (i in arquivos){
 
-thr = optimal_cut_smp(net)
+                edgelist = read.csv2(i, header = T, encoding = "UTF-8")
+                
+                net = graph.data.frame(edgelist, directed = FALSE)
+                
+                thr_ent = optimal_cut_smp(net, i)
+                
+                thr = thr_ent$weights_smp
+                
+                entropias = c(entropias, thr_ent$ent)
+                
+                net = delete.edges(net, which(E(net)$weight < thr))
+                
+                cl = cluster_louvain(net)
+                
+                V(net)$community = cl$membership
+                
+                pal = brewer.pal(3, "Dark2")
+                pal = colorRampPalette(pal)(length(unique(V(net)$community)))
+                
+                plot(net,
+                     vertex.size = 3,
+                     vertex.label = NA,
+                     edge.width = .1,
+                     asp = .5,
+                     vertex.color = pal[as.numeric(as.factor(vertex_attr(net, "community")))])
+                
+                dev.print(device = jpeg,
+                           filename = sprintf("imagens/rede_%s.jpg", substr(i, 25, nchar(i)-4)),
+                           width = 1920,
+                           height = 1080)
 
-net = delete.edges(net, which(E(net)$weight < thr))
+        }
+        
+        return(entropias)
+}
 
-cl = cluster_louvain(net)
+entropias = redes(arquivos)
 
-V(net)$community = cl$membership
+barplot(entropias, names.arg = c("FHC_2", "LULA_1", "LULA_2", "DILMA_1", "DILMA_2", "TEMER", "BOLSONARO"), xlab = "Governo", ylab = "Entropia")
 
-pal = brewer.pal(3, "Dark2")
-#pal = colorRampPalette(pal)(length(unique(V(net)$community)))
+dev.print(device = jpeg,
+          filename = "imagens/entropias_governos.jpg",
+          width = 1920,
+          height = 1080)
 
-plot(net,
-     vertex.size = 3,
-     vertex.label = NA,
-     edge.width = .1,
-     asp = .5,
-     vertex.color = pal[as.numeric(as.factor(vertex_attr(net, "community")))])
+#clusters = data.frame(Parlamentar = cl[[1]], Cluster = 1)
+#clusters = rbind(clusters, data.frame(Parlamentar = cl[[2]], Cluster = 2))
+#clusters = rbind(clusters, data.frame(Parlamentar = cl[[3]], Cluster = 3))
 
-clusters = data.frame(Parlamentar = cl[[1]], Cluster = 1)
-clusters = rbind(clusters, data.frame(Parlamentar = cl[[2]], Cluster = 2))
-clusters = rbind(clusters, data.frame(Parlamentar = cl[[3]], Cluster = 3))
-
-write.csv2(clusters,"C:/Users/Sérgio Ricardo/Desktop/Faculdade/TCC/Base/clusters_deputados.csv", row.names = FALSE)
-
-############Faltas dos Deputados###################
-
-dados_faltas = read.csv2("dados_faltas.csv", header = T, encoding = "UTF-8")
-
-rownames(dados_faltas) = dados_faltas$Parlamentar
-
-m_faltas = as.matrix(dist(dados_faltas$Faltas)+1)
-
-net_f=graph.adjacency(m_faltas,mode=c("undirected"),weighted=TRUE)
-
-E(net_f)$weight=1/E(net_f)$weight
-
-thr_f = optimal_cut_smp(net_f)
-
-net_f = delete.edges(net_f, which(E(net_f)$weight < thr_f))
-
-cl_f = cluster_louvain(net_f)
-
-V(net_f)$community = cl_f$membership
-
-pal_f = brewer.pal(8, "Dark2")
-pal_f = colorRampPalette(pal_f)(length(unique(V(net_f)$community)))
-
-plot(net_f,
-     vertex.size = 3,
-     vertex.label = NA,
-     edge.width = .1,
-     asp = .5,
-     vertex.color = pal_f[as.numeric(as.factor(vertex_attr(net_f, "community")))])
-
-clusters_f = data.frame(Parlamentar = cl[[1]], Cluster = 1)
-clusters_f = rbind(clusters_f, data.frame(Parlamentar = cl[[2]], Cluster = 2))
-clusters_f = rbind(clusters_f, data.frame(Parlamentar = cl[[3]], Cluster = 3))
-
-write.csv2(clusters_f,"C:/Users/Sérgio Ricardo/Desktop/Faculdade/TCC/Base/clusters_faltas_deputados.csv", row.names = FALSE)
-
+#write.csv2(clusters,"C:/Users/Sérgio Ricardo/Desktop/Faculdade/TCC/Base/clusters_deputados.csv", row.names = FALSE)
